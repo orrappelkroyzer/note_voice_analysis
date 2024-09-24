@@ -116,12 +116,13 @@ def plot_histogram_by_time(df, naf, input_file, return_fig=False):
     dominant_note = histogram_by_time(df, naf, input_file)
     fig = px.scatter(df, x='time', y='frequency', color='Note',
                             category_orders = {'Note' : ['A', 'A#', 'B', 'C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G ', 'G#']})
-    fig.add_trace(go.Scatter(x=[i+0.5 for i in dominant_note['second']],
-                            y=dominant_note['Note Frequency'],
-                            text = dominant_note['Note'],
-                            mode="text+markers",
-                            textposition='middle right',
-                            marker=dict(symbol='x', size=10, color="black")))
+    if dominant_note is not None:
+        fig.add_trace(go.Scatter(x=[i+0.5 for i in dominant_note['second']],
+                                y=dominant_note['Note Frequency'],
+                                text = dominant_note['Note'],
+                                mode="text+markers",
+                                textposition='middle right',
+                                marker=dict(symbol='x', size=10, color="black")))
     xaxis=dict(
             tickvals=list(range(int(df.time.max()+1))),  # Set the positions of the ticks
             ticktext=list(range(int(df.time.max()+1))),  # Set the labels for the ticks
