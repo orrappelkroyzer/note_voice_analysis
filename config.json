@@ -1,0 +1,8 @@
+{
+    "input_dir" : <>,
+    "processed_input_dir" : <>,
+    "output_dir" : <>,
+    "melodies_dir" : <>,
+    "min_threshold" : 0,
+    "max_threshold" : 1
+}
