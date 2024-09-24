@@ -16,11 +16,10 @@ import pandas as pd
 from scipy.spatial.distance import jensenshannon
 import tkinter as tk
 from tkinter import filedialog, simpledialog, messagebox, ttk
-from music_machine import music_machine
+from music_machine import music_machine, create_wav_from_notes, create_midi_from_notes
 import plotly.express as px
 import wave
 import numpy as np
-from scipy.io.wavfile import write as wavwrite
 import simpleaudio as sa
 
 def hist_file(input_file):
@@ -201,24 +200,7 @@ def get_wav_length(file_path):
         duration_seconds = n_frames / frame_rate
         return duration_seconds
 
-def generate_sine_wave(frequency, duration, sample_rate=44100):
-    t = np.linspace(0, duration, int(sample_rate * duration), False)
-    wave = 0.5 * np.sin(2 * np.pi * frequency * t)
-    return wave
 
-def create_wav_from_notes(melody, filename, duration, sample_rate=44100):
-    naf = read_naf().unstack()
-    frequencies = [naf.loc[x, '4'] for x in melody]
-    audio_data = np.array([])
-    for frequency in frequencies:
-        note_data = generate_sine_wave(frequency, duration, sample_rate)
-        audio_data = np.concatenate((audio_data, note_data))
-
-    # Normalize to 16-bit range
-    audio_data = np.int16(audio_data / np.max(np.abs(audio_data)) * 32767)
-
-    # Write to WAV file
-    wavwrite(filename, sample_rate, audio_data)
 
 
 def music_machine_popup():
@@ -230,16 +212,38 @@ def music_machine_popup():
         popup.lift()
 
     def browse_output_filename():
-        filename = filedialog.asksaveasfilename(initialdir=config['melodies_dir'], defaultextension=".wav")
+        filename = filedialog.asksaveasfilename(initialdir=config['melodies_dir'])
         if filename:
             output_filename_entry.delete(0, tk.END)
             output_filename_entry.insert(0, filename)
         popup.lift()
 
-    def play_wav(filename):
-        wave_obj = sa.WaveObject.from_wave_file(filename)
-        play_obj = wave_obj.play()
-        play_obj.wait_done()  # Wait until the audio file is done playing
+
+    def ask_format(melody, filename, duration):
+        """Ask the user for the desired output format (WAV or MIDI)."""
+        format_popup = tk.Toplevel(popup)
+        format_popup.title("Choose Format")
+
+        # Make the popup modal
+        format_popup.grab_set()
+
+        def choose_format(selected_format):
+            format_popup.destroy()
+            if selected_format == "WAV":
+                create_wav_from_notes(melody=melody, filename=filename, duration=duration)
+                logger.info("WAV file created")
+            elif selected_format == "MIDI":
+                create_midi_from_notes(melody=melody, filename=filename, duration=duration)
+                logger.info("MIDI file created")
+            popup.destroy()
+
+        tk.Label(format_popup, text="Select the output format:").pack(pady=10)
+        tk.Button(format_popup, text="WAV", command=lambda: choose_format("WAV")).pack(pady=5)
+        tk.Button(format_popup, text="MIDI", command=lambda: choose_format("MIDI")).pack(pady=5)
+
+        # Wait for the user to make a choice before continuing
+        popup.wait_window(format_popup)
+
 
     def submit():
         input_file = input_file_entry.get()
@@ -250,9 +254,8 @@ def music_machine_popup():
         first_dominant_tone, second_dominant_tone = extract_major_notes(input_file)
         harmony, melody = music_machine(voice_segment_duration, first_dominant_tone, second_dominant_tone, melody_type, num_cycles)
         logger.info(f"Harmony: {harmony}\nMelody: {melody}. writing to {output_file}")
-        logger.info(voice_segment_duration)
-        create_wav_from_notes(melody=melody, filename=output_file, duration=voice_segment_duration)
-        logger.info("wav file created")
+        ask_format(melody=melody, filename=output_file, duration=voice_segment_duration)
+        logger.info("file created")
         # logger.info(f"Playing melody")
         # #play_wav(output_file)
 
