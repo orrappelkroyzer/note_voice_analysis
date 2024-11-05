@@ -1,8 +1,8 @@
 {
-    "input_dir" : "C:\\Users\\orkro\\OneDrive\\Documents\\Work\\Academia\\CIDR\\Shlomi Frige\\input",
-    "processed_input_dir" : "C:\\Users\\orkro\\OneDrive\\Documents\\Work\\Academia\\CIDR\\Shlomi Frige\\processed_input_new",
-    "output_dir" : "C:\\Users\\orkro\\OneDrive\\Documents\\Work\\Academia\\CIDR\\Shlomi Frige\\output",
-    "melodies_dir" : "C:\\Users\\orkro\\OneDrive\\Documents\\Work\\Academia\\CIDR\\Shlomi Frige\\melodies",
+    "input_dir" : "C:\\path\\of\\directory\\where\\inpu\\wav\\files\\are\\located",
+    "processed_input_dir" : "C:\\path\\of\\directory\\where\\interim\\calculations\\will\\be\\stored",
+    "output_dir" : "C:\\ath\\of\\directory\\where\\output\\graphs\\will\\be\\written",
+    "melodies_dir" :"C:\\path\\of\\directory\\where\\melodies\\generated\\by\\the\\algorithm\\will\\be\\stored",
     "min_threshold" : 0,
     "max_threshold" : 1
 }
