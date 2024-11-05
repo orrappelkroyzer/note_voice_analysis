@@ -46,22 +46,33 @@ def create_histogram(input_path, output_filename):
                       filename=f"{Path(output_filename).stem}_notes_over_time_histogram", 
                       xaxes=xaxis, 
                       output_dir=Path(output_filename).parent)
-
+    hist.to_csv(f"{output_filename}.csv")
     fig = px.imshow(hist)
     fix_and_write(fig=fig, filename=Path(output_filename).stem, output_dir=Path(output_filename).parent)
+    message_popup = tk.Toplevel()
+    message_popup.title("Result")
+    message_label = tk.Label(message_popup, text=f'Histogram written to {output_filename}', font=("Helvetica", 12))
+    message_label.pack(pady=20, padx=20)
+    tk.Button(message_popup, text="Close", command=message_popup.destroy).pack(pady=10)
     
 
 def create_baseline(input_dir, output_filename):
     input_files =  Path(input_dir).glob("*.wav")
-    dfs = [hist_file(x) for x in input_files]
+    dfs = [hist_file(x)[0] for x in input_files]
     hist = sum(dfs)
     hist.to_csv(output_filename)
+    logger.info(f"Baseline written to {output_filename}")
+    message_popup = tk.Toplevel()
+    message_popup.title("Result")
+    message_label = tk.Label(message_popup, text=f'Baseline written to {output_filename}', font=("Helvetica", 12))
+    message_label.pack(pady=20, padx=20)
+    tk.Button(message_popup, text="Close", command=message_popup.destroy).pack(pady=10)
 
 def compare_to_baseline(input_files, baseline_file, threshold):
     input_files = re.findall(r'\{(.*?)\}', input_files)
     messages = []
     for input_file in input_files:
-        hist = hist_file(input_file)
+        hist = hist_file(input_file)[0]
         baseline = pd.read_csv(baseline_file)
         baseline.drop(columns='Octava', inplace=True)
         dist = jensenshannon(hist.values.flatten(), baseline.values.flatten())
@@ -161,7 +172,7 @@ def compare_to_baseline_popup():
 def create_histogram_popup():
     
     def browse_input_dir():
-        directory = filedialog.askopenfilename(initialdir=config['input_dir'])
+        directory = filedialog.askopenfilename(initialdir=config['input_dir'], filetypes=[("WAV files", "*.wav")])
         if directory:
             input_dir_entry.delete(0, tk.END)
             input_dir_entry.insert(0, directory)
@@ -285,9 +296,9 @@ def main():
     root.title("Python GUI")
     root.geometry("300x350")  # Adjust the size as per your requirement
 
-    tk.Button(root, text="Create Baseline", command=create_baseline_popup, padx=10, pady=10).pack(pady=20)
+    tk.Button(root, text="Create Baseline from a Direcoty", command=create_baseline_popup, padx=10, pady=10).pack(pady=20)
     tk.Button(root, text="Compare to Baseline", command=compare_to_baseline_popup, padx=10, pady=10).pack(pady=20)
-    tk.Button(root, text="Create Histogram", command=create_histogram_popup, padx=10, pady=10).pack(pady=20)
+    tk.Button(root, text="Create Histogram of a Single File", command=create_histogram_popup, padx=10, pady=10).pack(pady=20)
     tk.Button(root, text="Music Machine", command=music_machine_popup, padx=10, pady=10).pack(pady=20)
 
     root.mainloop()
