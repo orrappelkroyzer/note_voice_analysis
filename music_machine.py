@@ -138,11 +138,13 @@ def frequency_to_midi(frequency):
     return int(round(midi_note))
 
 def create_midi_from_notes(melody, filename, duration, tempo=500000):
+    logger.info(f"Creating MIDI file from notes: {melody}")
     # Create a new MIDI file and track
     mid = MidiFile()
     track = MidiTrack()
     mid.tracks.append(track)
 
+    logger.info("setting tempo")
     # Set tempo (default is 500000 microseconds per beat, which is 120 BPM)
     track.append(mido.MetaMessage('set_tempo', tempo=tempo))
 
@@ -150,7 +152,8 @@ def create_midi_from_notes(melody, filename, duration, tempo=500000):
     frequencies = [naf.loc[x, '4'] for x in melody]
 
     # Convert each frequency to a MIDI note and assign durations
-    for frequency in frequencies:
+    for i, frequency in enumerate(frequencies):
+        logger.info(f"adding frequency {frequency}, {i}/{len(frequencies)}")
         midi_note = frequency_to_midi(frequency)
 
         # Note on (velocity 64 is a standard value, you can modify it)
@@ -162,5 +165,6 @@ def create_midi_from_notes(melody, filename, duration, tempo=500000):
         track.append(Message('note_off', note=midi_note, velocity=64, time=time_per_note))
 
     # Save the MIDI file
+    filename += ".mid"
     logger.info(f"Writing audio to {filename}")
     mid.save(filename)

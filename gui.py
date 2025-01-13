@@ -70,16 +70,28 @@ def create_baseline(input_dir, output_filename):
 
 def compare_to_baseline(input_files, baseline_file, threshold):
     input_files = re.findall(r'\{(.*?)\}', input_files)
+    
     messages = []
     for input_file in input_files:
+        logger.info(f"Comparing {Path(input_file).name} to {Path(baseline_file).name}")
         hist = hist_file(input_file)[0]
         baseline = pd.read_csv(baseline_file)
         baseline.drop(columns='Octava', inplace=True)
-        dist = jensenshannon(hist.values.flatten(), baseline.values.flatten())
-        logger.info(f"Distance between {Path(input_file).name} and {Path(baseline_file).name}: {dist}")
+        hist_flat = hist.values.flatten()
+        baseline_flat = baseline.values.flatten()
+        hist_flat = np.maximum(hist_flat, 0)  # Make all values non-negative
+        baseline_flat = np.maximum(baseline_flat, 0)  # Make all values non-negative
+        hist_flat = hist_flat / np.sum(hist_flat) if np.sum(hist_flat) > 0 else hist_flat
+        baseline_flat = baseline_flat / np.sum(baseline_flat) if np.sum(baseline_flat) > 0 else baseline_flat
+        epsilon = 1e-10
+        hist_flat = hist_flat + epsilon
+        baseline_flat = baseline_flat + epsilon
+        dist = jensenshannon(hist_flat, baseline_flat)
+        
+        logger.info(f"Distance between {Path(input_file).name} and {baseline_file}: {dist}")
         message =  f"The file {Path(input_file).name} is " + \
-                    f"different from" if {dist > threshold} else "close to" + \
-                    str(Path(baseline_file).name)
+                    (f"different from " if {dist > threshold} else "close to ") + \
+                    str(Path(baseline_file).name) + f" with a distance of {round(dist, 2)}"
         messages += [message]
     return messages
         
