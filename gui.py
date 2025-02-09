@@ -20,7 +20,8 @@ from music_machine import music_machine, create_wav_from_notes, create_midi_from
 import plotly.express as px
 import wave
 import numpy as np
-import simpleaudio as sa
+
+import traceback
 
 def hist_file(input_file):
     naf = read_naf()
@@ -36,30 +37,48 @@ def extract_major_notes(input_file):
 
 
 def create_histogram(input_path, output_filename):
+    hist, (fig, xaxis) = hist_file(input_path)
+    fix_and_write(fig=fig, 
+                    filename=f"{Path(output_filename).stem}_notes_over_time_histogram", 
+                    xaxes=xaxis, 
+                    output_dir=Path(output_filename).parent)
+    hist.to_csv(f"{output_filename}.csv")
+    save_historgram(hist, output_filename)
+
+def plot_histogram(input_path, output_filename):
     input_path = Path(input_path)
     if input_path.is_dir():
-        outputs = [hist_file(x)[0] for x in input_path.glob("*.wav")]
+        outputs = [pd.read_csv(x) for x in input_path.glob("*.wav")]
         hist = sum(outputs)
     else:
-        hist, (fig, xaxis) = hist_file(input_path)
-        fix_and_write(fig=fig, 
-                      filename=f"{Path(output_filename).stem}_notes_over_time_histogram", 
-                      xaxes=xaxis, 
-                      output_dir=Path(output_filename).parent)
-    hist.to_csv(f"{output_filename}.csv")
+        hist = pd.read_csv(input_path)
+        
+    save_historgram(hist, output_filename)
+
+def save_historgram(hist, output_filename):
+    output_filename = Path(output_filename)
     fig = px.imshow(hist)
     fix_and_write(fig=fig, filename=Path(output_filename).stem, output_dir=Path(output_filename).parent)
     message_popup = tk.Toplevel()
     message_popup.title("Result")
-    message_label = tk.Label(message_popup, text=f'Histogram written to {output_filename}', font=("Helvetica", 12))
+    message_label = tk.Label(message_popup, text=f'Histogram written to {output_filename.stem}.png', font=("Helvetica", 12))
     message_label.pack(pady=20, padx=20)
     tk.Button(message_popup, text="Close", command=message_popup.destroy).pack(pady=10)
     
 
 def create_baseline(input_dir, output_filename):
-    input_files =  Path(input_dir).glob("*.wav")
-    dfs = [hist_file(x)[0] for x in input_files]
-    hist = sum(dfs)
+    input_dir = Path(input_dir)
+    outputs = [hist_file(x)[0] for x in input_dir.glob("*.wav")]
+    outputs += [hist_file(x)[0] for x in input_dir.glob("*.csv")]
+    if len(outputs) == 0:
+        logger.error(f"No files found in {input_dir}")
+        message_popup = tk.Toplevel()
+        message_popup.title("Error")
+        message_label = tk.Label(message_popup, text=f"No files found in {input_dir}", font=("Helvetica", 12))
+        message_label.pack(pady=20, padx=20)
+        tk.Button(message_popup, text="Close", command=message_popup.destroy).pack(pady=10)
+        return
+    hist = sum(outputs)
     hist.to_csv(output_filename)
     logger.info(f"Baseline written to {output_filename}")
     message_popup = tk.Toplevel()
@@ -67,6 +86,7 @@ def create_baseline(input_dir, output_filename):
     message_label = tk.Label(message_popup, text=f'Baseline written to {output_filename}', font=("Helvetica", 12))
     message_label.pack(pady=20, padx=20)
     tk.Button(message_popup, text="Close", command=message_popup.destroy).pack(pady=10)
+    save_historgram(hist, output_filename)
 
 def compare_to_baseline(input_files, baseline_file, threshold):
     input_files = re.findall(r'\{(.*?)\}', input_files)
@@ -112,10 +132,14 @@ def create_baseline_popup():
         popup.lift()
 
     def submit():
-        input_dir = input_dir_entry.get()
-        output_filename = output_filename_entry.get()
-        create_baseline(input_dir, output_filename)
-        popup.destroy()
+        try:
+            input_dir = input_dir_entry.get()
+            output_filename = output_filename_entry.get()
+            create_baseline(input_dir, output_filename)
+            popup.destroy()
+        except Exception as e:
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Internal error: {e}")
 
     popup = tk.Toplevel()
     tk.Label(popup, text="Select Input Directory:").pack(pady=(5, 0))
@@ -139,7 +163,7 @@ def compare_to_baseline_popup():
         popup.lift()
 
     def browse_input_files():
-        input_files = filedialog.askopenfilenames(filetypes=[("WAV files", "*.wav")], initialdir=config['input_dir'])  
+        input_files = filedialog.askopenfilenames(filetypes=[("WAV and CSV files", "*.wav *.csv")], initialdir=config['input_dir'])  
         if input_files:
             input_file_entry.delete(0, tk.END)
             input_file_entry.insert(0, input_files)
@@ -154,11 +178,15 @@ def compare_to_baseline_popup():
 
 
     def submit():
-        baseline_file = baseline_file_entry.get()
-        input_files = input_file_entry.get()
-        threshold = slider.get() / 100.0
-        result = compare_to_baseline(input_files, baseline_file, threshold)
-        show_custom_message("\n".join(result))
+        try:
+            baseline_file = baseline_file_entry.get()
+            input_files = input_file_entry.get()
+            threshold = slider.get() / 100.0
+            result = compare_to_baseline(input_files, baseline_file, threshold)
+            show_custom_message("\n".join(result))
+        except Exception as e:
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Internal error: {e}")
 
     popup = tk.Toplevel()
     
@@ -183,38 +211,53 @@ def compare_to_baseline_popup():
 
 def create_histogram_popup():
     
-    def browse_input_dir():
-        directory = filedialog.askopenfilename(initialdir=config['input_dir'], filetypes=[("WAV files", "*.wav")])
+    def browse_input_file():
+        directory = filedialog.askopenfilename(initialdir=config['input_dir'], filetypes=[("WAV and CSV files", "*.wav *.csv")])
         if directory:
             input_dir_entry.delete(0, tk.END)
             input_dir_entry.insert(0, directory)
         popup.lift()
 
     def browse_output_filename():
-        filename = filedialog.asksaveasfilename(initialdir=config['processed_input_dir'], defaultextension=".csv")
+        filename = filedialog.asksaveasfilename(initialdir=config['processed_input_dir'])
         if filename:
             output_filename_entry.delete(0, tk.END)
             output_filename_entry.insert(0, filename)
         popup.lift()
 
-    def submit():
-        input_dir = input_dir_entry.get()
-        output_filename = output_filename_entry.get()
-        create_histogram(input_dir, output_filename)
-        popup.destroy()
+    def ch_submit():
+        try:
+            input_dir = input_dir_entry.get()
+            output_filename = output_filename_entry.get()
+            create_histogram(input_dir, output_filename)
+            popup.destroy()
+        except Exception as e:
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Internal error: {e}")
+
+    def ph_submit():
+        try:
+            input_dir = input_dir_entry.get()
+            output_filename = output_filename_entry.get()
+            plot_histogram(input_dir, output_filename)
+            popup.destroy()
+        except Exception as e:
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Internal error: {e}")
 
     popup = tk.Toplevel()
-    tk.Label(popup, text="Select Input Directory:").pack(pady=(5, 0))
+    tk.Label(popup, text="Select Input Filename:").pack(pady=(5, 0))
     input_dir_entry = tk.Entry(popup, width=50)
     input_dir_entry.pack(pady=(0, 5))
-    tk.Button(popup, text="Browse", command=browse_input_dir).pack()
+    tk.Button(popup, text="Browse", command=browse_input_file).pack()
 
     tk.Label(popup, text="Select Output Filename:").pack(pady=(5, 0))
     output_filename_entry = tk.Entry(popup, width=50)
     output_filename_entry.pack(pady=(0, 5))
     tk.Button(popup, text="Browse", command=browse_output_filename).pack()
 
-    tk.Button(popup, text="Submit", command=submit).pack(pady=10)
+    tk.Button(popup, text="Create Histogram", command=ch_submit).pack(pady=10)
+    tk.Button(popup, text="Plot Histogram", command=ph_submit).pack(pady=5)
 
 def get_wav_length(file_path):
     with wave.open(file_path, 'rb') as wav_file:
@@ -227,7 +270,7 @@ def get_wav_length(file_path):
 
 
 def music_machine_popup():
-    def browse_input_dir():
+    def browse_input_file():
         input_file = filedialog.askopenfilename(initialdir=config['input_dir'])
         if input_file:
             input_file_entry.delete(0, tk.END)
@@ -269,26 +312,30 @@ def music_machine_popup():
 
 
     def submit():
-        input_file = input_file_entry.get()
-        output_file = output_filename_entry.get()
-        voice_segment_duration = int(get_wav_length(str(input_file)))
-        melody_type = melody_type_combobox.get() 
-        num_cycles = int(cycles_entry.get())
-        first_dominant_tone, second_dominant_tone = extract_major_notes(input_file)
-        harmony, melody = music_machine(voice_segment_duration, first_dominant_tone, second_dominant_tone, melody_type, num_cycles)
-        logger.info(f"Harmony: {harmony}\nMelody: {melody}. writing to {output_file}")
-        ask_format(melody=melody, filename=output_file, duration=voice_segment_duration)
-        logger.info("file created")
-        # logger.info(f"Playing melody")
-        # #play_wav(output_file)
+        try:
+            input_file = input_file_entry.get()
+            output_file = output_filename_entry.get()
+            voice_segment_duration = int(get_wav_length(str(input_file)))
+            melody_type = melody_type_combobox.get() 
+            num_cycles = int(cycles_entry.get())
+            first_dominant_tone, second_dominant_tone = extract_major_notes(input_file)
+            harmony, melody = music_machine(voice_segment_duration, first_dominant_tone, second_dominant_tone, melody_type, num_cycles)
+            logger.info(f"Harmony: {harmony}\nMelody: {melody}. writing to {output_file}")
+            ask_format(melody=melody, filename=output_file, duration=voice_segment_duration)
+            logger.info("file created")
+            # logger.info(f"Playing melody")
+            # #play_wav(output_file)
 
-        popup.destroy()
+            popup.destroy()
+        except Exception as e:
+            traceback.print_exc()
+            messagebox.showerror("Error", f"Internal error: {e}")
 
     popup = tk.Toplevel()
     tk.Label(popup, text="Select Input File:").pack(pady=(5, 0))
     input_file_entry = tk.Entry(popup, width=50)
     input_file_entry.pack(pady=(0, 5))
-    tk.Button(popup, text="Browse", command=browse_input_dir).pack()
+    tk.Button(popup, text="Browse", command=browse_input_file).pack()
     tk.Label(popup, text="Select Output Filename:").pack(pady=(5, 0))
     output_filename_entry = tk.Entry(popup, width=50)
     output_filename_entry.pack(pady=(0, 5))
@@ -305,12 +352,12 @@ def music_machine_popup():
 
 def main():
     root = tk.Tk()
-    root.title("Python GUI")
+    root.title("GarfunkeL")
     root.geometry("300x350")  # Adjust the size as per your requirement
 
     tk.Button(root, text="Create Baseline from a Direcoty", command=create_baseline_popup, padx=10, pady=10).pack(pady=20)
+    tk.Button(root, text="Create/plot Histogram of a Single File", command=create_histogram_popup, padx=10, pady=10).pack(pady=20)
     tk.Button(root, text="Compare to Baseline", command=compare_to_baseline_popup, padx=10, pady=10).pack(pady=20)
-    tk.Button(root, text="Create Histogram of a Single File", command=create_histogram_popup, padx=10, pady=10).pack(pady=20)
     tk.Button(root, text="Music Machine", command=music_machine_popup, padx=10, pady=10).pack(pady=20)
 
     root.mainloop()

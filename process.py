@@ -34,13 +34,16 @@ def read_naf():
     return naf
 
     
-
-def read_wav(filename, naf):
-    logger.info(f"Reading wav file {filename}")
+def crepe_read_wav(filename):
+    logger.info(f"Reading wav file {filename} using CREPE")
     sr, audio = wavfile.read(filename)
     d = dict(zip(['time', 'frequency', 'confidence', 'activation'], crepe.predict(audio, sr, viterbi=True)))
     del d['activation']
     df = pd.DataFrame(d)
+    return df
+
+def process_wav(df, naf):
+    logger.info(f"Processing wav file")
     df = df[df['confidence'] > 0.8]
     naf_borders = [0] + list((naf.values[:-1] + naf.values[1:])/2) + [10000]
     naf_with_index = naf.reset_index()
@@ -48,6 +51,20 @@ def read_wav(filename, naf):
     naf.name = 'Note Frequency'
     df = df.merge(naf, on=['Note', 'Octava'])
     return df
+
+
+def read_wav(filename, naf):
+    filename = Path(filename)
+    if filename.suffix == ".wav":
+        df = crepe_read_wav(filename)
+    elif filename.suffix == ".csv":
+        df = pd.read_csv(filename)
+    else: 
+        raise ValueError("File must be either a wav or a csv file")
+    df = process_wav(df, naf)    
+    return df
+
+
 
 def hard_bin_histogram(df, naf_borders, naf):
     count, division = np.histogram(df['frequency'], bins = naf_borders)
