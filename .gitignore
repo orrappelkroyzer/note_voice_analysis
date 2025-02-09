@@ -8,3 +8,4 @@ __pycache__/process.cpython-312.pyc
 utils/__pycache__/plotly_utils.cpython-312.pyc
 utils/__pycache__/utils.cpython-312.pyc
 config copy 2.json
+config.json
