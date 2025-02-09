@@ -1,0 +1,6 @@
+{
+    "input_dir" : "C:\\Path\\to\\input\\dir",
+    "processed_input_dir" : "C:\\path\\to\\directory\\where\\processed\\input\\will\\be\\written",
+    "output_dir" : "C:\\Path\\to\\output\\dir",
+    "melodies_dir" : "C:\\Path\\to\\melodies\\dir"
+}
